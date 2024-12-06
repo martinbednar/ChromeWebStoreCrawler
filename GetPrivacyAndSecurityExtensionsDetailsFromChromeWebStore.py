@@ -4,6 +4,9 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 import re
+from git import Repo
+from datetime import datetime
+import os
 
 
 
@@ -57,6 +60,7 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
         rating = ""
         numberofratings = ""
         
+        # Load a webpage of the the extension on Chrome Web Store
         try:
             # Get a webpage of the the extension on Chrome Web Store
             driver.get("https://chromewebstore.google.com/detail/" + extension_id)
@@ -64,12 +68,14 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
             print("Unable to load a webpage for the extension with id: " + extension_id)
             continue
         
+        # Get name of the extension
         try:    
             name_elem = driver.find_element(By.CLASS_NAME, "Pa2dE")
             name = name_elem.text.strip()
         except:
             pass
 
+        # Get e-mail contact of the extension
         try:
             arrow = driver.find_element(By.CLASS_NAME, "gotS2b")
             arrow.click()
@@ -78,18 +84,21 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
         except:
             pass
 
+        # Get number of users of the extension
         try:
             numberofusers_elem = driver.find_element(By.CLASS_NAME, "F9iKBc")
             numberofusers = numberofusers_elem.text.replace('Extension', '').replace('Privacy & Security', '').replace('users', '').replace('user', '').replace(',', '').strip()
         except:
             pass
 
+        # Get rating of the extension
         try:
             rating_elem = driver.find_element(By.CLASS_NAME, "Vq0ZA")
             rating = rating_elem.text.replace('.', ',').strip()
         except:
             pass
 
+        # Get number of ratings of the extension
         try:
             numberofratings_elem = driver.find_element(By.CLASS_NAME, "xJEoWe")
             numberofratings = numberofratings_elem.text.replace('ratings', '').replace('rating', '').strip()
@@ -100,6 +109,7 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
         except:
             pass
         
+        # Get links to the repositories of the extension
         try:
             overview = driver.find_element(By.CLASS_NAME, "JJ3H1e")
             # Regular expresions inspired by https://stackoverflow.com/a/59008843
@@ -107,10 +117,34 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
             git_links = set(link.strip() for link in githublab_regex.findall(overview.text))
             bitbucket_regex = re.compile('(?:https?://)?(?:www[.])?bitbucket[.](?:com|org)/[\w\-/]+\s?')
             git_links.update(set(link.strip() for link in bitbucket_regex.findall(overview.text)))
-            git_links = ','.join(git_links)
         except:
             pass
+        
+        # Clone repositories of the extension to the local directory "./repos"
+        REPOS_DIRECTORY = "./repos"
+
+        if not os.path.exists(REPOS_DIRECTORY):
+            os.makedirs(REPOS_DIRECTORY)
+
+        already_downloaded_repos = [name.split(' ')[0]+"_"+name.split(' ')[2] for name in os.listdir(REPOS_DIRECTORY)]
+        
+        for repo_url in git_links:
+            if "bitbucket" in repo_url:
+                print("Bitbucket repository: " + repo_url)
+                print("Repository not cloned: " + extension_id+"_"+repo_url.split('/')[-1] + " (" + repo_url + ")")
+                print("Bitbucket repositories are not cloned because they require authentication and the credentials are not provided in this script")
+                continue
+            if extension_id+"_"+repo_url.split('/')[-1] in already_downloaded_repos:
+                print("Repository already downloaded: " + extension_id+"_"+repo_url.split('/')[-1] + " (" + repo_url + ")")
+                continue
+            try:
+                repo = Repo.clone_from(repo_url, REPOS_DIRECTORY + "/" + extension_id + " - " + repo_url.split('/')[-1] + " - " + datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+            except:
+                print("Error cloning repository: " + repo_url)
+                continue
     
+        # Write all information about extension to the CSV file
+        git_links = ','.join(git_links)
         f.write(name + ";" + extension_id + ";" + email + ";" + numberofusers + ";" + rating + ";" + numberofratings + ";" + git_links + "\n")
 
 
