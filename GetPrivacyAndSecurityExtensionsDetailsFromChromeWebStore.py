@@ -7,6 +7,7 @@ import re
 from git import Repo
 from datetime import datetime
 import os
+from pathlib import Path
 
 
 
@@ -142,7 +143,25 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
             except:
                 print("Error cloning repository: " + repo_url)
                 continue
-    
+        
+        # Find e-mails in the cloned repositories of the extension
+        email_regex1 = re.compile('([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)')
+        email_regex2 = re.compile('([a-zA-Z0-9_.+-]+ at [a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)')
+
+        extension_repositories = [name for name in os.listdir(REPOS_DIRECTORY) if name.startswith(extension_id)]
+        
+        emails = set()
+        for repository in extension_repositories:
+            for path in Path(REPOS_DIRECTORY + "/" + repository).rglob('**/*'):
+                if path.is_file():
+                    with open(path, 'r', encoding="utf-8") as file:
+                        try:
+                            file_content = file.read()
+                            emails.update(set(email_regex1.findall(file_content)))
+                            emails.update(set(email_regex2.findall(file_content)))
+                        except:
+                            pass
+
         # Write all information about extension to the CSV file
         git_links = ','.join(git_links)
         f.write(name + ";" + extension_id + ";" + email + ";" + numberofusers + ";" + rating + ";" + numberofratings + ";" + git_links + "\n")
