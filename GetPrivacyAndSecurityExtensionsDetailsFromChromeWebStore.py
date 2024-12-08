@@ -52,7 +52,7 @@ extensions_ids = [extension.get_attribute('data-item-id').strip() for extension 
 
 ##### For each extension: Write all information about extension to the CSV file. #####
 with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
-    f.write("Name;Id;E-mail;Number of users;Rating;Number of ratings;Repository\n")
+    f.write("Name;Id;E-mail;E-mails from repos;Number of users;Rating;Number of ratings;Repository\n")
     
     for extension_id in extensions_ids:
         name = ""
@@ -145,26 +145,39 @@ with open("PrivacyAndSecurityExtensions.csv", "w", encoding="utf-8") as f:
                 continue
         
         # Find e-mails in the cloned repositories of the extension
-        email_regex1 = re.compile('([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)')
-        email_regex2 = re.compile('([a-zA-Z0-9_.+-]+ at [a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)')
-
-        extension_repositories = [name for name in os.listdir(REPOS_DIRECTORY) if name.startswith(extension_id)]
+        email_regex = re.compile(r"[a-zA-Z0-9_.+#~-]+@[a-zA-Z0-9-]*[a-zA-Z]+[a-zA-Z0-9-]*\.[a-zA-Z0-9-.]+[a-zA-Z0-9]+")
+        # Exclude e.g. arrow@2x.png (It looks like an e-mail address but it is not. It is a file according to filename extension ".png".)
+        filetypes_regex = re.compile(r".*\.(png|jpg|jpeg|gif|bmp|tiff|tif|svg|ico|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|js|json|xml|zip|rar|tar|gz|7z|exe|msi|apk|dmg|iso|bin|jar|war|ear|mp3|mp4|avi|mkv|mov|flv|wmv|wma|wav|ogg|mpg|mpeg|flac|aac|aiff|amr|ape|asf|au|mid|midi|mpa|ra|ram|sln|csproj|vcxproj|vbproj|fsproj|fsxproj|pyproj|nupkg|vsix|vsct|vssettings|vsi|vstemplate|vsto)")
+        # Exclude e.g. "package@v1.0.0" (It looks like an e-mail address but it is not. It is a package name with version)
+        package_version_regex = re.compile(r".*@v\d+\.\d+\.\d+")
+        # Exclude e.g. "xxx@example.com"
+        example_email_regex = re.compile(r".*example.(com|org|net|cz|sk|eu|de|fr|uk|us|ca|au|jp|cn|ru|br|it|es|pl|nl|se|ch|at|be|dk|fi|no|pt|gr|hu|ie|lu|mx|nz|za|ar|cl|co|id|il|kr|my|ph|sg|th|tr|ua|vn)")
         
-        emails = set()
+        extension_repositories = [name for name in os.listdir(REPOS_DIRECTORY) if name.startswith(extension_id)]
+
+        repos_emails = set()
         for repository in extension_repositories:
             for path in Path(REPOS_DIRECTORY + "/" + repository).rglob('**/*'):
                 if path.is_file():
                     with open(path, 'r', encoding="utf-8") as file:
                         try:
                             file_content = file.read()
-                            emails.update(set(email_regex1.findall(file_content)))
-                            emails.update(set(email_regex2.findall(file_content)))
+                            repos_emails.update(set(email_regex.findall(file_content)))
                         except:
                             pass
-
+        
+        # Discard my git e-mail and others non-valid entries in the set of e-mails from the repositories
+        MY_GIT_EMAIL = "martin.bedn20@gmail.com"
+        repos_emails.discard(MY_GIT_EMAIL)
+        repos_emails.discard("git@github.com")
+        repos_emails = set(email for email in repos_emails if not re.fullmatch(filetypes_regex, email))
+        repos_emails = set(email for email in repos_emails if not re.fullmatch(package_version_regex, email))
+        repos_emails = set(email for email in repos_emails if not re.fullmatch(example_email_regex, email))
+        
         # Write all information about extension to the CSV file
         git_links = ','.join(git_links)
-        f.write(name + ";" + extension_id + ";" + email + ";" + numberofusers + ";" + rating + ";" + numberofratings + ";" + git_links + "\n")
+        repos_emails = ','.join(repos_emails)
+        f.write(name + ";" + extension_id + ";" + email + ";" + repos_emails + ";" + numberofusers + ";" + rating + ";" + numberofratings + ";" + git_links + "\n")
 
 
 
