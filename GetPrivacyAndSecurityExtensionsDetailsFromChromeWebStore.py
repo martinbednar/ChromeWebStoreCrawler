@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Author: Martin Bednar (2024)
 
 from selenium import webdriver
